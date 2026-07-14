@@ -7,27 +7,61 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <h1>Playtest Tracker</h1>
-    <button id="newPrototypeBtn" class="btn btn-primary">New prototype</button>
-  </header>
-
-  <section class="stats" id="stats" aria-label="Summary stats"></section>
-
-  <div class="controls">
-    <label class="select-label">
-      Prototype
-      <select id="prototypeSelect" aria-label="Select prototype"></select>
-    </label>
-    <div class="controls-actions" id="protoActions" hidden>
-      <button class="btn" id="editProtoBtn">Edit</button>
-      <button class="btn btn-danger" id="deleteProtoBtn">Delete</button>
+  <!-- Auth view: shown when signed out -->
+  <div id="authView" class="auth-wrap" hidden>
+    <div class="auth-card">
+      <h1>Playtest Tracker</h1>
+      <p id="authSubtitle" class="muted">Sign in to your workshop.</p>
+      <form id="authForm">
+        <label id="emailField">Email
+          <input name="email" type="email" autocomplete="email" placeholder="you@example.com" />
+        </label>
+        <label id="passwordField">Password
+          <input name="password" type="password" autocomplete="current-password" placeholder="At least 8 characters" />
+        </label>
+        <label id="tokenField" hidden>Reset token
+          <input name="token" placeholder="Paste the reset token" />
+        </label>
+        <p class="form-error" id="authError" hidden></p>
+        <p class="auth-note" id="authNote" hidden></p>
+        <button type="submit" class="btn btn-primary" id="authSubmit">Sign in</button>
+      </form>
+      <div class="auth-links">
+        <a href="#" data-mode="login">Sign in</a>
+        <a href="#" data-mode="register">Create account</a>
+        <a href="#" data-mode="forgot">Forgot password</a>
+      </div>
     </div>
   </div>
 
-  <main class="content" id="detailContent">
-    <p class="muted">Loading</p>
-  </main>
+  <!-- App view: shown when signed in -->
+  <div id="appView" hidden>
+    <header class="topbar">
+      <h1>Playtest Tracker</h1>
+      <div class="topbar-actions">
+        <span id="userEmail" class="user-email"></span>
+        <button id="newPrototypeBtn" class="btn btn-primary">New prototype</button>
+        <button id="logoutBtn" class="btn">Sign out</button>
+      </div>
+    </header>
+
+    <section class="stats" id="stats" aria-label="Summary stats"></section>
+
+    <div class="controls">
+      <label class="select-label">
+        Prototype
+        <select id="prototypeSelect" aria-label="Select prototype"></select>
+      </label>
+      <div class="controls-actions" id="protoActions" hidden>
+        <button class="btn" id="editProtoBtn">Edit</button>
+        <button class="btn btn-danger" id="deleteProtoBtn">Delete</button>
+      </div>
+    </div>
+
+    <main class="content" id="detailContent">
+      <p class="muted">Loading</p>
+    </main>
+  </div>
 
   <!-- Prototype create/edit dialog -->
   <dialog id="prototypeDialog" class="dialog">

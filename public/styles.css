@@ -12,6 +12,8 @@
 }
 
 * { box-sizing: border-box; }
+/* The `hidden` attribute must beat author display rules (flex/grid) below. */
+[hidden] { display: none !important; }
 body {
   margin: 0;
   background: var(--bg);
@@ -28,6 +30,21 @@ body {
   border-bottom: 1px solid var(--line);
 }
 .topbar h1 { font-size: 1.15rem; margin: 0; font-weight: 600; }
+.topbar-actions { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+.user-email { color: var(--muted); font-size: 0.85rem; }
+
+/* Auth view */
+.auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.auth-card { width: min(380px, 100%); border: 1px solid var(--line); background: var(--surface); padding: 1.75rem; }
+.auth-card h1 { margin: 0 0 0.3rem; font-size: 1.3rem; }
+.auth-card > .muted { margin: 0 0 1.25rem; font-size: 0.9rem; }
+.auth-card form { display: flex; flex-direction: column; gap: 0.8rem; }
+.auth-card label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; color: var(--muted); }
+.auth-card #authSubmit { margin-top: 0.3rem; }
+.auth-note { margin: 0; font-size: 0.82rem; color: var(--accent); word-break: break-all; }
+.auth-links { display: flex; gap: 1rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: 0.82rem; }
+.auth-links a { color: var(--muted); text-decoration: none; }
+.auth-links a:hover { color: var(--accent); }
 
 /* Stats */
 .stats {

@@ -22,7 +22,11 @@ async function api(method, url, body) {
   });
   if (res.status === 204) return null;
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+  if (!res.ok) {
+    // A dropped/expired session on an app call bounces back to the login view.
+    if (res.status === 401 && !url.startsWith('/api/auth')) showAuthView();
+    throw new Error(data.error || `Request failed (${res.status}).`);
+  }
   return data;
 }
 
@@ -392,6 +396,87 @@ async function deleteSession(id) {
   }
 }
 
+// Authentication
+
+const authError = (msg) => { const e = $('#authError'); e.textContent = msg; e.hidden = false; };
+const authNote = (msg) => { const e = $('#authNote'); e.textContent = msg; e.hidden = false; };
+
+const AUTH_MODES = {
+  login: {
+    title: 'Sign in to your workshop.', submit: 'Sign in', password: true, token: false,
+    action: async (f) => enterApp(await api('POST', '/api/auth/login', { email: f.email.value, password: f.password.value })),
+  },
+  register: {
+    title: 'Create your account.', submit: 'Create account', password: true, token: false,
+    action: async (f) => enterApp(await api('POST', '/api/auth/register', { email: f.email.value, password: f.password.value })),
+  },
+  forgot: {
+    title: 'Reset your password.', submit: 'Send reset', password: false, token: false,
+    action: async (f) => {
+      const res = await api('POST', '/api/auth/forgot', { email: f.email.value });
+      if (res.token) {
+        setAuthMode('reset');
+        f.token.value = res.token;
+        authNote('Reset ready — token filled in below. Set a new password.');
+      } else {
+        authNote(res.message);
+      }
+    },
+  },
+  reset: {
+    title: 'Choose a new password.', submit: 'Update password', password: true, token: true,
+    action: async (f) => {
+      const res = await api('POST', '/api/auth/reset', { token: f.token.value, password: f.password.value });
+      setAuthMode('login');
+      authNote(res.message);
+    },
+  },
+};
+let authMode = 'login';
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const cfg = AUTH_MODES[mode];
+  $('#authSubtitle').textContent = cfg.title;
+  $('#authSubmit').textContent = cfg.submit;
+  $('#passwordField').hidden = !cfg.password;
+  $('#tokenField').hidden = !cfg.token;
+  $('#authError').hidden = true;
+  $('#authNote').hidden = true;
+}
+
+function showAuthView() {
+  $('#appView').hidden = true;
+  $('#authView').hidden = false;
+  $('#authForm').reset();
+  setAuthMode('login');
+}
+
+async function enterApp(user) {
+  $('#userEmail').textContent = user.email;
+  $('#authView').hidden = true;
+  $('#appView').hidden = false;
+  selectedId = null;
+  currentDetail = null;
+  await loadPrototypes();
+}
+
+async function logout() {
+  try { await api('POST', '/api/auth/logout'); } catch { /* ignore */ }
+  prototypes = [];
+  selectedId = null;
+  currentDetail = null;
+  showAuthView();
+}
+
+async function boot() {
+  try {
+    await enterApp(await api('GET', '/api/auth/me'));
+  } catch {
+    showAuthView();
+  }
+}
+
 // Wire up
 $('#newPrototypeBtn').addEventListener('click', () => openPrototypeDialog());
 $('#prototypeSelect').addEventListener('change', (e) => {
@@ -406,9 +491,28 @@ $('#deleteProtoBtn').addEventListener('click', () => {
   const p = prototypes.find((x) => x.id === selectedId);
   if (p) deletePrototype(p);
 });
+$('#logoutBtn').addEventListener('click', logout);
 $('#prototypeForm').addEventListener('submit', submitPrototype);
 $('#sessionForm').addEventListener('submit', submitSession);
 document.querySelectorAll('[data-close]').forEach((btn) =>
   btn.addEventListener('click', () => btn.closest('dialog').close()));
 
-loadPrototypes();
+$('#authForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('#authError').hidden = true;
+  try {
+    await AUTH_MODES[authMode].action(e.target);
+  } catch (err) {
+    authError(err.message);
+  }
+});
+document.querySelectorAll('.auth-links a').forEach((a) =>
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
+    const f = $('#authForm');
+    f.password.value = '';
+    f.token.value = '';
+    setAuthMode(a.dataset.mode);
+  }));
+
+boot();

@@ -2,7 +2,8 @@
 
 A full-stack app for board game designers to track prototypes and log playtest
 sessions. Node.js + Express backend, SQLite database, vanilla HTML/CSS/JS
-frontend served by Express.
+frontend served by Express. Each account has its own prototypes, behind a simple
+email/password login (register, sign in, and a password-reset flow).
 
 ## Required dependencies
 
@@ -46,7 +47,8 @@ Re-running `npm run seed` resets the database to the sample data.
 npm start
 ```
 
-Then open http://localhost:3000
+Then open http://localhost:3000 and sign in with the demo account below, or
+create a new one.
 
 For development with auto-restart on file changes:
 
@@ -69,13 +71,36 @@ environment variable), so it never touches `playtest.db`.
 
 ## Demo credentials
 
-None. The app has no authentication.
+After `npm run seed`, a demo account owns the sample games:
+
+- Email: `demo@example.com`
+- Password: `demo1234`
+
+You can also create your own account from the login screen. Every new account
+starts with its own copy of the sample games, and sees only its own prototypes.
+
+## Authentication notes
+
+- Passwords are hashed with scrypt (Node's built-in `crypto`); login state is a
+  random session token stored in an HttpOnly cookie.
+- The "forgot password" flow issues a reset token. Because no mail server runs
+  locally, the token is returned to the browser and shown in the reset form; in
+  production it would be emailed instead.
 
 ## API reference
 
+The `/api/prototypes` and `/api/sessions` routes require a signed-in session
+cookie; requests without one return `401`.
+
 | Method | Route                          | Purpose                                |
 |--------|--------------------------------|----------------------------------------|
-| GET    | `/api/prototypes`              | List prototypes with rolled-up stats   |
+| POST   | `/api/auth/register`           | Create an account and sign in          |
+| POST   | `/api/auth/login`              | Sign in                                |
+| POST   | `/api/auth/logout`             | Sign out                               |
+| GET    | `/api/auth/me`                 | Current signed-in user                 |
+| POST   | `/api/auth/forgot`             | Start a password reset (returns token) |
+| POST   | `/api/auth/reset`              | Set a new password with a reset token  |
+| GET    | `/api/prototypes`              | List your prototypes with stats        |
 | POST   | `/api/prototypes`              | Create a prototype                     |
 | GET    | `/api/prototypes/:id`          | One prototype and its sessions         |
 | PUT    | `/api/prototypes/:id`          | Update a prototype                     |
@@ -89,8 +114,11 @@ None. The app has no authentication.
 ```
 server.js        Express app: routes, validation, error handling
 db.js            SQLite connection, schema, and seed data
+auth.js          Password hashing and token helpers
 public/
   index.html     Markup and dialogs
   styles.css     Styling
   app.js         Frontend logic
+test/
+  app.test.js    End-to-end tests (Puppeteer)
 ```
