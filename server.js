@@ -4,6 +4,8 @@ const path = require('path');
 const express = require('express');
 const db = require('./db');
 const { hashPassword, verifyPassword, randomToken } = require('./auth');
+const { HttpError } = require('./errors');
+const { validatePrototype, validateSession, validateCredentials } = require('./validators');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,19 +13,6 @@ const SESSION_DAYS = 7;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Domain constants
-const STATUSES = ['concept', 'prototyping', 'testing', 'shelved', 'published'];
-const TAGS = ['fun', 'balance', 'rules', 'components', 'pacing'];
-
-// Helpers
-// Thrown by validators; caught by the error handler and returned as JSON.
-class HttpError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
 
 // Wrap a handler so any thrown error lands in the central error handler.
 const h = (fn) => (req, res, next) => {
@@ -33,59 +22,6 @@ const h = (fn) => (req, res, next) => {
     next(err);
   }
 };
-
-const isBlank = (v) => v === undefined || v === null || String(v).trim() === '';
-
-// Coerce a value to an integer within [min, max], or throw. Allows null when optional.
-function intField(value, label, { min, max, optional } = {}) {
-  if (isBlank(value)) {
-    if (optional) return null;
-    throw new HttpError(400, `${label} is required.`);
-  }
-  const n = Number(value);
-  if (!Number.isInteger(n)) throw new HttpError(400, `${label} must be a whole number.`);
-  if (min !== undefined && n < min) throw new HttpError(400, `${label} must be at least ${min}.`);
-  if (max !== undefined && n > max) throw new HttpError(400, `${label} must be at most ${max}.`);
-  return n;
-}
-
-function validatePrototype(body) {
-  if (isBlank(body.name)) throw new HttpError(400, 'Name is required.');
-  const status = isBlank(body.status) ? 'concept' : String(body.status);
-  if (!STATUSES.includes(status)) {
-    throw new HttpError(400, `Status must be one of: ${STATUSES.join(', ')}.`);
-  }
-  const player_min = intField(body.player_min, 'Min players', { min: 1, optional: true });
-  const player_max = intField(body.player_max, 'Max players', { min: 1, optional: true });
-  if (player_min !== null && player_max !== null && player_max < player_min) {
-    throw new HttpError(400, 'Max players cannot be less than min players.');
-  }
-  return {
-    name: String(body.name).trim(),
-    status,
-    player_min,
-    player_max,
-    target_playtime: intField(body.target_playtime, 'Target playtime', { min: 1, optional: true }),
-    notes: isBlank(body.notes) ? null : String(body.notes).trim(),
-  };
-}
-
-function validateSession(body) {
-  if (isBlank(body.played_on)) throw new HttpError(400, 'Play date is required.');
-  let tag = null;
-  if (!isBlank(body.tag)) {
-    tag = String(body.tag);
-    if (!TAGS.includes(tag)) throw new HttpError(400, `Tag must be one of: ${TAGS.join(', ')}.`);
-  }
-  return {
-    played_on: String(body.played_on).trim(),
-    player_count: intField(body.player_count, 'Player count', { min: 1 }),
-    duration_min: intField(body.duration_min, 'Duration', { min: 1, optional: true }),
-    rating: intField(body.rating, 'Rating', { min: 1, max: 5, optional: true }),
-    tag,
-    notes: isBlank(body.notes) ? null : String(body.notes).trim(),
-  };
-}
 
 // Serialize rows to CSV, quoting cells that contain commas, quotes, or newlines.
 function toCsv(rows) {
@@ -140,13 +76,23 @@ function startSession(res, userId) {
   setSessionCookie(res, token, SESSION_DAYS * 86400);
 }
 
-function validateCredentials(body) {
-  const email = String(body.email || '').trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, 'Enter a valid email address.');
-  const password = String(body.password || '');
-  if (password.length < 8) throw new HttpError(400, 'Password must be at least 8 characters.');
-  return { email, password };
+// In-memory fixed-window rate limiter (per IP). Bounds brute-force attempts on
+// the auth endpoints. State is per-process and resets on restart.
+function rateLimit({ windowMs, max }) {
+  const hits = new Map();
+  return (req, res, next) => {
+    const now = Date.now();
+    let entry = hits.get(req.ip);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + windowMs };
+      hits.set(req.ip, entry);
+    }
+    entry.count += 1;
+    if (entry.count > max) return next(new HttpError(429, 'Too many attempts. Try again later.'));
+    next();
+  };
 }
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 
 // Gate: require a valid session cookie; attaches req.userId / req.userEmail.
 function requireAuth(req, res, next) {
@@ -162,7 +108,8 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// Auth routes
+// Auth routes (rate-limited against brute force)
+app.use(['/api/auth/register', '/api/auth/login', '/api/auth/forgot', '/api/auth/reset'], authLimiter);
 
 app.post('/api/auth/register', h((req, res) => {
   const { email, password } = validateCredentials(req.body);
@@ -341,6 +288,15 @@ app.use((err, req, res, next) => {
   if (status === 500) console.error(err);
   res.status(status).json({ error: err.message || 'Internal server error.' });
 });
+
+// Delete expired login sessions and used/expired reset tokens so they don't
+// accumulate. Runs at startup and hourly.
+function pruneExpired() {
+  db.prepare("DELETE FROM user_sessions WHERE expires_at <= datetime('now')").run();
+  db.prepare("DELETE FROM password_resets WHERE used = 1 OR expires_at <= datetime('now')").run();
+}
+pruneExpired();
+setInterval(pruneExpired, 60 * 60 * 1000).unref();
 
 app.listen(PORT, () => {
   console.log(`Playtest Tracker running at http://localhost:${PORT}`);

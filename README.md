@@ -1,9 +1,6 @@
 # Playtest Tracker
 
-A full-stack app for board game designers to track prototypes and log playtest
-sessions. Node.js + Express backend, SQLite database, vanilla HTML/CSS/JS
-frontend served by Express. Each account has its own prototypes, behind a simple
-email/password login (register, sign in, and a password-reset flow).
+A full-stack app for board game designers to track prototypes and log playtest sessions. Node.js + Express backend, SQLite database, vanilla HTML/CSS/JS frontend served by Express. Each account has its own prototypes, behind a simple email/password login (register, sign in, and a password-reset flow).
 
 ## Required dependencies
 
@@ -32,8 +29,7 @@ npm install
 
 ## Database setup / seed
 
-The SQLite file (`playtest.db`) is created automatically on first run. To load
-sample prototypes and playtests:
+The SQLite file (`playtest.db`) is created automatically on first run. To load sample prototypes and playtests:
 
 ```bash
 npm run seed
@@ -47,8 +43,7 @@ Re-running `npm run seed` resets the database to the sample data.
 npm start
 ```
 
-Then open http://localhost:3000 and sign in with the demo account below, or
-create a new one.
+Then open http://localhost:3000 and sign in with the demo account below, or create a new one.
 
 For development with auto-restart on file changes:
 
@@ -58,16 +53,18 @@ npm run dev
 
 ## Test
 
-End-to-end tests use Puppeteer (installed with `npm install`) to drive the real
-UI in a headless browser: create a prototype, log playtests, filter/sort, check
-the tag averages, edit, delete, and export.
+Two layers:
+
+- **Unit tests** (`test:unit`) — the request validators and password hashing, in isolation. Fast, no server or browser.
+- **End-to-end tests** (`test:e2e`) — Puppeteer drives the real UI in a headless browser: register, create a prototype, log playtests, filter/sort, check the tag averages, edit, delete, export, sign out/in, and reset a password.
 
 ```bash
-npm test
+npm test        # run everything
+npm run test:unit
+npm run test:e2e
 ```
 
-The suite boots the server against a throwaway database (via the `DB_FILE`
-environment variable), so it never touches `playtest.db`.
+The e2e suite boots the server against a throwaway database (via the `DB_FILE` environment variable), so it never touches `playtest.db`.
 
 ## Demo credentials
 
@@ -76,21 +73,26 @@ After `npm run seed`, a demo account owns the sample games:
 - Email: `demo@example.com`
 - Password: `demo1234`
 
-You can also create your own account from the login screen. Every new account
-starts with its own copy of the sample games, and sees only its own prototypes.
+You can also create your own account from the login screen. Every new account starts with its own copy of the sample games, and sees only its own prototypes.
 
 ## Authentication notes
 
-- Passwords are hashed with scrypt (Node's built-in `crypto`); login state is a
-  random session token stored in an HttpOnly cookie.
-- The "forgot password" flow issues a reset token. Because no mail server runs
-  locally, the token is returned to the browser and shown in the reset form; in
-  production it would be emailed instead.
+- Passwords are hashed with scrypt (Node's built-in `crypto`); login state is a random session token stored in an HttpOnly, SameSite=Lax cookie.
+- Auth endpoints are rate-limited (30 requests / 15 min / IP) to bound brute-force attempts.
+- Expired login sessions and used/expired reset tokens are pruned on startup and hourly.
+
+### Known simplifications
+
+Deliberate trade-offs for a local, time-boxed build:
+
+- **Password reset shows the token in the browser.** No mail server runs locally, so the reset flow surfaces the token directly instead of emailing a link.
+- **Rate limiting is in-memory.** It is per-process and resets on restart; a real deployment would use a shared store (e.g. Redis).
+- **No CSRF token.** State-changing requests rely on the SameSite=Lax cookie; a production app would add CSRF tokens and serve over HTTPS with `Secure`.
+- **No email verification** on registration.
 
 ## API reference
 
-The `/api/prototypes` and `/api/sessions` routes require a signed-in session
-cookie; requests without one return `401`.
+The `/api/prototypes` and `/api/sessions` routes require a signed-in session cookie; requests without one return `401`.
 
 | Method | Route                          | Purpose                                |
 |--------|--------------------------------|----------------------------------------|
@@ -112,13 +114,17 @@ cookie; requests without one return `401`.
 ## Project layout
 
 ```
-server.js        Express app: routes, validation, error handling
-db.js            SQLite connection, schema, and seed data
-auth.js          Password hashing and token helpers
+server.js            Express app: routes, auth, rate limiting, error handling
+db.js                SQLite connection, schema, and seed data
+validators.js        Request-body validation
+errors.js            Shared HttpError type
+auth.js              Password hashing and token helpers
 public/
-  index.html     Markup and dialogs
-  styles.css     Styling
-  app.js         Frontend logic
+  index.html         Markup and dialogs
+  styles.css         Styling
+  app.js             Frontend logic
 test/
-  app.test.js    End-to-end tests (Puppeteer)
+  validators.test.js Unit tests (validators)
+  auth.test.js       Unit tests (hashing)
+  app.test.js        End-to-end tests (Puppeteer)
 ```
