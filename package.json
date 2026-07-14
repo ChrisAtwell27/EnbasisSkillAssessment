@@ -1,0 +1,31 @@
+{
+  "name": "enbasisskillassessment",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node db.js --seed",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChrisAtwell27/EnbasisSkillAssessment.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ChrisAtwell27/EnbasisSkillAssessment/issues"
+  },
+  "homepage": "https://github.com/ChrisAtwell27/EnbasisSkillAssessment#readme",
+  "description": "",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.3.0"
+  }
+}

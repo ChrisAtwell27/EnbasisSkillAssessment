@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Playtest Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Playtest Tracker</h1>
+    <button id="newPrototypeBtn" class="btn btn-primary">New prototype</button>
+  </header>
+
+  <section class="stats" id="stats" aria-label="Summary stats"></section>
+
+  <div class="controls">
+    <label class="select-label">
+      Prototype
+      <select id="prototypeSelect" aria-label="Select prototype"></select>
+    </label>
+    <div class="controls-actions" id="protoActions" hidden>
+      <button class="btn" id="editProtoBtn">Edit</button>
+      <button class="btn btn-danger" id="deleteProtoBtn">Delete</button>
+    </div>
+  </div>
+
+  <main class="content" id="detailContent">
+    <p class="muted">Loading</p>
+  </main>
+
+  <!-- Prototype create/edit dialog -->
+  <dialog id="prototypeDialog" class="dialog">
+    <form id="prototypeForm" method="dialog">
+      <h3 id="prototypeDialogTitle">New prototype</h3>
+      <label>Name *
+        <input name="name" required maxlength="120" placeholder="Harvest Moon Guild" />
+      </label>
+      <label>Status
+        <select name="status">
+          <option value="concept">Concept</option>
+          <option value="prototyping">Prototyping</option>
+          <option value="testing">Testing</option>
+          <option value="shelved">Shelved</option>
+          <option value="published">Published</option>
+        </select>
+      </label>
+      <div class="row">
+        <label>Min players<input name="player_min" type="number" min="1" placeholder="2" /></label>
+        <label>Max players<input name="player_max" type="number" min="1" placeholder="4" /></label>
+        <label>Target min<input name="target_playtime" type="number" min="1" placeholder="60" /></label>
+      </div>
+      <label>Notes
+        <textarea name="notes" rows="3" placeholder="Core mechanism, current pain points"></textarea>
+      </label>
+      <p class="form-error" id="prototypeError" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Session log dialog -->
+  <dialog id="sessionDialog" class="dialog">
+    <form id="sessionForm" method="dialog">
+      <h3 id="sessionDialogTitle">Log playtest</h3>
+      <div class="row">
+        <label>Date *<input name="played_on" type="date" required /></label>
+        <label>Players *<input name="player_count" type="number" min="1" required placeholder="4" /></label>
+        <label>Duration min<input name="duration_min" type="number" min="1" placeholder="60" /></label>
+      </div>
+      <div class="row">
+        <label>Rating
+          <select name="rating">
+            <option value="">None</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </label>
+        <label>Focus tag
+          <select name="tag">
+            <option value="">None</option>
+            <option value="fun">Fun</option>
+            <option value="balance">Balance</option>
+            <option value="rules">Rules</option>
+            <option value="components">Components</option>
+            <option value="pacing">Pacing</option>
+          </select>
+        </label>
+      </div>
+      <label>Notes
+        <textarea name="notes" rows="3" placeholder="What worked, what broke, what to try next"></textarea>
+      </label>
+      <p class="form-error" id="sessionError" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
